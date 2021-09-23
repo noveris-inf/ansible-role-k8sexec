@@ -28,7 +28,8 @@
     overlay_dir: "{{ dest_dir }}/overlays/{{ kustomize_overlay_name }}"
 
 - name: Diff manifest
-  command: "kubectl diff --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}"
+  command: >
+    kubectl diff --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}
   register: diff_output
 
 - name: Display diff
@@ -36,7 +37,8 @@
     var: diff_output
 
 - name: Apply manifest
-  command: "kubectl apply --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}"
+  command: >
+    kubectl apply --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}
   when: "k8s_apply|default(false)"
 
 - name: Remove temporary directory
