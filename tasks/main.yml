@@ -1,0 +1,45 @@
+---
+
+- name: Create temporary area
+  command: "mktemp -d"
+  register: temp_dir
+
+- name: Set dest_dir
+  set_fact:
+    dest_dir: "{{ temp_dir.stdout_lines[0] }}"
+
+- name: Copy bases
+  copy:
+    src: "{{ playbook_dir }}/bases"
+    dest: "{{ dest_dir }}"
+
+- name: Create overlay directory
+  command: "mkdir {{ dest_dir }}/overlays"
+  args:
+    warn: False
+
+- name: Copy overlay
+  copy:
+    src: "{{ playbook_dir }}/overlays/{{ kustomize_overlay_name }}"
+    dest: "{{ dest_dir }}/overlays/"
+
+- name: Set overlay dir
+  set_fact:
+    overlay_dir: "{{ dest_dir }}/overlays/{{ kustomize_overlay_name }}"
+
+- name: Diff manifest
+  command: "kubectl diff --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}"
+  register: diff_output
+
+- name: Display diff
+  debug:
+    var: diff_output
+
+- name: Apply manifest
+  command: "kubectl apply --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}"
+  when: "k8s_apply|default(false)"
+
+- name: Remove temporary directory
+  file:
+    path: "{{ dest_dir }}"
+    state: absent
