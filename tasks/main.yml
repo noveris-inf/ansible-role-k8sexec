@@ -31,10 +31,12 @@
   command: >
     kubectl diff --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}
   register: diff_output
+  failed_when: false
 
 - name: Display diff
   debug:
     var: diff_output
+  failed_when: false
 
 - name: Apply manifest
   command: >
