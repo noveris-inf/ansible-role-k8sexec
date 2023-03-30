@@ -15,8 +15,6 @@
 
 - name: Create overlay directory
   command: "mkdir {{ dest_dir }}/overlays"
-  args:
-    warn: False
 
 - name: Copy overlay
   copy:
