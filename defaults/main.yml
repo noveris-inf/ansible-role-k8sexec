@@ -3,15 +3,12 @@
 k8sexec_sources: []
 
 k8sexec_kubectl_release_url: https://dl.k8s.io/release/v1.28.3/bin/linux/amd64/kubectl
-k8sexec_kubectl_use_system: true
+k8sexec_kubectl_path: ''
 
 k8sexec_kustomize_release_url: 'https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.2.1/kustomize_v5.2.1_linux_amd64.tar.gz'
-k8sexec_kustomize_use_system: true
+k8sexec_kustomize_path: ''
 
-k8sexec_kubectl_path: "{{ 'kubectl' if k8sexec_kubectl_use_system else (temp_dir.path + '/' + 'kubectl') }}"
-k8sexec_kustomize_path: "{{ 'kustomize' if k8sexec_kustomize_use_system else (temp_dir.path + '/' + 'kubectl') }}"
-
-k8sexec_kustomize_overlay_name: '{{ undef(hint='Overlay name must be defined for kustomize') }}'
+k8sexec_kustomize_overlay_subdir: "{{ undef(hint='Overlay sub directory must be defined for kustomize') }}"
 k8sexec_kustomize_required: false
 
 k8sexec_kubectl_args: ''
