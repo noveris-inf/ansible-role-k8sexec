@@ -1,0 +1,88 @@
+---
+
+#
+# Download any executables required
+
+- name: Download kubectl
+  when:
+    - not k8sexec_kubectl_use_system
+  ansible.builtin.get_url:
+    url: k8sexec_kubectl_release_url
+    dest: "{{ temp_dir.path }}/kubectl"
+    mode: "0755"
+  check_mode: false
+
+- when:
+    - not k8sexec_kustomize_use_system
+  block:
+    - name: Download kustomize
+      ansible.builtin.get_url:
+        url: k8sexec_kustomize_release_url
+        dest: "{{ temp_dir.path }}/kustomize.tgz"
+        mode: "0755"
+      check_mode: false
+
+    - name: Extract kustomize
+      ansible.builtin.unarchive:
+        dest: "{{ temp_dir.path }}"
+        mode: "0755"
+        include: "kustomize"
+        src: "{{ temp_dir.path }}/kustomize.tgz"
+        remote_src: true
+      check_mode: false
+
+- name: Sources directory
+  ansible.builtin.file:
+    path: "{{ temp_dir.path }}/sources"
+    state: directory
+  check_mode: false
+
+- name: Copy sources
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ temp_dir.path }}/sources/"
+  check_mode: false
+  loop: "{{ k8sexec_sources }}"
+
+- when: k8sexec_use_kustomize
+  block:
+    - name: Generate definition
+      ansible.builtin.command:
+        cmd: '"{{ k8sexec_kustomize_path }}" build {{ k8sexec_kustomize_build_args }} "{{ temp_dir.path }}/sources/"'
+      register: k8sexec_kustomize_output
+      check_mode: false
+
+    - name: Clear sources directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}/sources"
+        state: "{{ item }}"
+      loop:
+        - absent
+        - directory
+      check_mode: false
+
+    - name: Copy kustomize definition
+      ansible.builtin.copy:
+        content: "{{ k8sexec_kustomize_output.stdout }}"
+        dest: "{{ temp_dir.path }}/sources/manifest.yml"
+        mode: "0600"
+      check_mode: false
+
+- name: Diff manifest
+  ansible.builtin.command:
+    cmd: '"{{ k8sexec_kubectl_path }}" diff {{ k8sexec_kubectl_args }} -f "{{ temp_dir.path }}/sources"'
+  check_mode: false
+  register: k8sexec_kubectl_output
+
+- name: Diff result
+  debug:
+    msg: "{{ k8sexec_kubectl_output.stdout_lines }}"
+
+- name: Apply manifest
+  ansible.builtin.command:
+    cmd: '"{{ k8sexec_kubectl_path }}" apply {{ k8sexec_kubectl_args }} -f "{{ temp_dir.path }}/sources"'
+  register: k8sexec_kubectl_output
+
+- name: Apply result
+  debug:
+    msg: "{{ k8sexec_kubectl_output.stdout_lines }}"
