@@ -61,7 +61,7 @@
   block:
     - name: Generate definition
       ansible.builtin.command:
-        cmd: '"{{ k8sexec_kustomize_path }}" build {{ k8sexec_kustomize_build_args }} "{{ temp_dir.path }}/sources/"'
+        cmd: '"{{ k8sexec_kustomize_path }}" build {{ k8sexec_kustomize_build_args }} "{{ temp_dir.path }}/sources/{{ k8sexec_kustomize_overlay_subdir }}"'
       register: k8sexec_kustomize_output
       check_mode: false
 
@@ -84,9 +84,10 @@
 # Generate a diff on the changes to apply
 - name: Diff manifest
   ansible.builtin.command:
-    cmd: '"{{ k8sexec_kubectl_path }}" diff {{ k8sexec_kubectl_args }} -R -f "{{ temp_dir.path }}/sources"'
+    cmd: '"{{ k8sexec_kubectl_path }}" diff {{ k8sexec_kubectl_diff_args }} -R -f "{{ temp_dir.path }}/sources"'
   check_mode: false
   register: k8sexec_kubectl_output
+  failed_when: k8sexec_kubectl_output.rc != 0 and k8sexec_kubectl_output.rc != 1
 
 - name: Diff result
   ansible.builtin.debug:
@@ -95,7 +96,7 @@
 # Apply the actual manifest, when not in check mode
 - name: Apply manifest
   ansible.builtin.command:
-    cmd: '"{{ k8sexec_kubectl_path }}" apply {{ k8sexec_kubectl_args }} -R -f "{{ temp_dir.path }}/sources"'
+    cmd: '"{{ k8sexec_kubectl_path }}" apply {{ k8sexec_kubectl_apply_args }} -R -f "{{ temp_dir.path }}/sources"'
   register: k8sexec_kubectl_output
 
 - name: Apply result

@@ -11,5 +11,6 @@ k8sexec_kustomize_path: ''
 k8sexec_kustomize_overlay_subdir: "{{ undef(hint='Overlay sub directory must be defined for kustomize') }}"
 k8sexec_kustomize_required: false
 
-k8sexec_kubectl_args: ''
+k8sexec_kubectl_diff_args: ''
+k8sexec_kubectl_apply_args: ''
 k8sexec_kustomize_build_args: ''
