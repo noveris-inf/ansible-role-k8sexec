@@ -1,0 +1,104 @@
+---
+
+#
+# Download kubectl, if no path has been specified
+- when:
+    - k8sexec_kubectl_path|default('') == ''
+  block:
+    - name: Download kubectl
+      ansible.builtin.get_url:
+        url: k8sexec_kubectl_release_url
+        dest: "{{ temp_dir.path }}/kubectl"
+        mode: "0755"
+      check_mode: false
+
+    - name: Update kubectl path
+      ansible.builtin.set_fact:
+        k8sexec_kubectl_path: "{{ temp_dir.path }}/kustomize"
+
+#
+# Download kustomize, if no path has been specified
+- when:
+    - k8sexec_kustomize_path|default('') == ''
+  block:
+    - name: Download kustomize
+      ansible.builtin.get_url:
+        url: k8sexec_kustomize_release_url
+        dest: "{{ temp_dir.path }}/kustomize.tgz"
+        mode: "0755"
+      check_mode: false
+
+    - name: Extract kustomize
+      ansible.builtin.unarchive:
+        dest: "{{ temp_dir.path }}"
+        mode: "0755"
+        include: "kustomize"
+        src: "{{ temp_dir.path }}/kustomize.tgz"
+        remote_src: true
+      check_mode: false
+
+    - name: Update kustomize path
+      ansible.builtin.set_fact:
+        k8sexec_kustomize_path: "{{ temp_dir.path }}/kustomize"
+
+# Source directory for manifests
+- name: Sources directory
+  ansible.builtin.file:
+    path: "{{ temp_dir.path }}/sources"
+    state: directory
+  check_mode: false
+
+- name: Copy sources
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ temp_dir.path }}/sources/"
+  check_mode: false
+  loop: "{{ k8sexec_sources }}"
+
+# If we're using kustomize, generate a kustomized manifest and replace the existing
+# files with the new manifest
+- when: k8sexec_kustomize_required
+  block:
+    - name: Generate definition
+      ansible.builtin.command:
+        cmd: '"{{ k8sexec_kustomize_path }}" build {{ k8sexec_kustomize_build_args }} "{{ temp_dir.path }}/sources/{{ k8sexec_kustomize_overlay_subdir }}"'
+      register: k8sexec_kustomize_output
+      check_mode: false
+
+    - name: Clear sources directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}/sources"
+        state: "{{ item }}"
+      loop:
+        - absent
+        - directory
+      check_mode: false
+
+    - name: Copy kustomize definition
+      ansible.builtin.copy:
+        content: "{{ k8sexec_kustomize_output.stdout }}"
+        dest: "{{ temp_dir.path }}/sources/manifest.yml"
+        mode: "0600"
+      check_mode: false
+
+# Generate a diff on the changes to apply
+- name: Diff manifest
+  ansible.builtin.command:
+    cmd: '"{{ k8sexec_kubectl_path }}" diff {{ k8sexec_kubectl_diff_args }} -R -f "{{ temp_dir.path }}/sources"'
+  check_mode: false
+  register: k8sexec_kubectl_output
+  failed_when: k8sexec_kubectl_output.rc != 0 and k8sexec_kubectl_output.rc != 1
+
+- name: Diff result
+  ansible.builtin.debug:
+    msg: "{{ k8sexec_kubectl_output.stdout_lines }}"
+
+# Apply the actual manifest, when not in check mode
+- name: Apply manifest
+  ansible.builtin.command:
+    cmd: '"{{ k8sexec_kubectl_path }}" apply {{ k8sexec_kubectl_apply_args }} -R -f "{{ temp_dir.path }}/sources"'
+  register: k8sexec_kubectl_output
+
+- name: Apply result
+  ansible.builtin.debug:
+    msg: "{{ k8sexec_kubectl_output.stdout_lines }}"

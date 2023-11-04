@@ -1,63 +1,20 @@
 ---
 
+# Generate the definition from the kustomize sources
 - name: Create temporary area
   ansible.builtin.tempfile:
     state: directory
   register: temp_dir
   check_mode: false
 
-- block:
-    - name: Set dest_dir
-      set_fact:
-        dest_dir: "{{ temp_dir.path }}"
-      check_mode: false
-
-    - name: Copy bases
-      copy:
-        src: "{{ playbook_dir }}/bases"
-        dest: "{{ dest_dir }}"
-      check_mode: false
-
-    - name: Create overlay directory
-      command: "mkdir {{ dest_dir }}/overlays"
-      check_mode: false
-
-    - name: Copy overlay
-      copy:
-        src: "{{ playbook_dir }}/overlays/{{ kustomize_overlay_name }}"
-        dest: "{{ dest_dir }}/overlays/"
-      check_mode: false
-
-    - name: Set overlay dir
-      set_fact:
-        overlay_dir: "{{ dest_dir }}/overlays/{{ kustomize_overlay_name }}"
-      check_mode: false
-
-    - name: Diff manifest
-      command: >
-        kubectl diff --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}
-      register: diff_output
-      failed_when: false
-      check_mode: false
-
-    - name: Display diff
-      debug:
-        var: diff_output
-      failed_when: false
-      check_mode: false
-
-    - name: Apply manifest
-      command: >
-        kubectl apply --cluster {{ kubernetes_cluster }} -k {{ overlay_dir }}
-      register: apply_output
-
-    - name: Apply output
-      debug:
-        var: apply_output
-
+- name: Process k8s manifests
+  block:
+    - name: process k8s manifests
+      ansible.builtin.include_tasks:
+        file: process.yml
   always:
     - name: Remove temporary directory
-      file:
-        path: "{{ dest_dir }}"
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
         state: absent
       check_mode: false
