@@ -81,17 +81,25 @@
         mode: "0600"
       check_mode: false
 
-# Generate a diff on the changes to apply
-- name: Diff manifest
-  ansible.builtin.command:
-    cmd: '"{{ k8sexec_kubectl_path }}" diff {{ k8sexec_kubectl_diff_args }} -R -f "{{ temp_dir.path }}/sources"'
-  check_mode: false
-  register: k8sexec_kubectl_output
-  failed_when: k8sexec_kubectl_output.rc != 0 and k8sexec_kubectl_output.rc != 1
+- block:
+    # Generate a diff on the changes to apply
+    - name: Diff manifest
+      ansible.builtin.command:
+        cmd: '"{{ k8sexec_kubectl_path }}" diff {{ k8sexec_kubectl_diff_args }} -R -f "{{ temp_dir.path }}/sources"'
+      check_mode: false
+      register: k8sexec_kubectl_output
+      failed_when: k8sexec_kubectl_output.rc != 0 and k8sexec_kubectl_output.rc != 1
 
-- name: Diff result
-  ansible.builtin.debug:
-    msg: "{{ k8sexec_kubectl_output.stdout_lines }}"
+    - name: Diff result
+      ansible.builtin.debug:
+        msg: "{{ k8sexec_kubectl_output.stdout_lines }}"
+  rescue:
+    - ansible.builtin.fail:
+        msg: manifest diff failed
+      # If there is no apply to do and the diff failed, then we should fail here
+      # If we're not in check mode, run the apply as the diff may have failed due to some missing resource
+      # preventing the diff from running, such as a namespace
+      when: ansible_check_mode
 
 # Apply the actual manifest, when not in check mode
 - name: Apply manifest
